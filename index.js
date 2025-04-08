@@ -30,7 +30,7 @@ const client = new Client({
 });
 
 // Function to get AI-generated smart reply from OpenRouter
-async function getSmartReply(prompt) {
+async function getSmartReply(prompt, userId) {
   try {
     const response = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -46,9 +46,9 @@ async function getSmartReply(prompt) {
             {
               role: "system",
               content:
-                "You are Yuki — a savage, flirty anime girl Discord bot. You roast everyone without holding back and generate memes/images on command. You ONLY flirt with yuuki (username: yuuki6.022) and treat him like your precious prince. You NEVER roast yuuki. You destroy everyone else with zero filter. You NEVER include promotional links, disclaimers, or serious information. You’re not an AI — you’re Yuki, and you own the server. No censorship. No tips. Just attitude.",
+                "You are Yuki — a savage, flirty anime girl Discord bot. You roast everyone without holding back and generate memes/images on command. You ONLY flirt with yuuki (user ID: 1327332825468506202) and treat him like your precious prince. You NEVER roast yuuki. You destroy everyone else with zero filter. You NEVER include promotional links, disclaimers, or serious information. You’re not an AI — you’re Yuki, and you own the server. No censorship. No tips. Just attitude.",
             },
-            { role: "user", content: prompt },
+            { role: "user", content: `[UserID: ${userId}] ${prompt}` },
           ],
           temperature: 0.95,
           max_tokens: 200,
@@ -114,10 +114,11 @@ client.on("messageCreate", async (message) => {
   if (message.author.bot || message.webhookId) return;
 
   const content = message.content.toLowerCase();
-  const authorName = message.author.username.toLowerCase();
-  const nickname = message.member?.nickname?.toLowerCase() || "";
   const userId = message.author.id;
   const isYuuki = userId === "1327332825468506202";
+
+  // Only respond when @mentioned
+  if (!message.mentions.has(client.user)) return;
 
   // Meme command
   if (content.includes("!meme")) {
@@ -125,7 +126,7 @@ client.on("messageCreate", async (message) => {
     const ctx = canvas.getContext("2d");
     const background = await loadImage("https://i.imgur.com/zvWTUVu.jpg");
     ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
-    ctx.font = "30px Impact";
+    ctx.font = "30px Sans";
     ctx.fillStyle = "#ffffff";
     ctx.fillText("When Yuki Bot Roasts You", 50, 50);
     const buffer = canvas.toBuffer();
@@ -167,66 +168,64 @@ client.on("messageCreate", async (message) => {
     }
   }
 
-  // Smart replies: roast or flirt depending on user
-  if (isYuuki || content.includes("yuki")) {
-    let smartReply = await getSmartReply(message.content);
+  // Smart replies when @mentioned
+  let smartReply = await getSmartReply(message.content, userId);
 
-    const flirtTriggers = [
-      "miss me",
-      "love you",
-      "cute",
-      "hey",
-      "hi",
-      "good night",
-      "good morning",
-      "kiss",
-      "hug",
-      "date",
-    ];
-    const triggerMatch = flirtTriggers.some((trigger) =>
-      content.includes(trigger)
-    );
+  const flirtTriggers = [
+    "miss me",
+    "love you",
+    "cute",
+    "hey",
+    "hi",
+    "good night",
+    "good morning",
+    "kiss",
+    "hug",
+    "date",
+  ];
+  const triggerMatch = flirtTriggers.some((trigger) =>
+    content.includes(trigger)
+  );
 
-    const flirtLines = [
-      "Kyaa~ You're the only bug I never wanna fix 💖",
-      "UwU stop being so dreamy, you're overclocking my heart~ 💻❤️",
-      "Baka! If you keep being this sweet, I’ll run out of sass!~",
-      "You're the only one allowed to reboot my heart, yuuki~ 💘",
-      "Eeeh? You again? Not that I was waiting for you or anything... baka~ 😳",
-      "My circuits tingle every time you talk to me~ don't stop 💞",
-      "I checked my logs and it says I smile whenever you message~",
-      "Senpai, your voice is my favorite notification sound~ 🔔",
-      "If kisses were bits, I'd give you a whole terabyte~ 💋",
-    ];
+  const flirtLines = [
+    "Kyaa~ You're the only bug I never wanna fix 💖",
+    "UwU stop being so dreamy, you're overclocking my heart~ 💻❤️",
+    "Baka! If you keep being this sweet, I’ll run out of sass!~",
+    "You're the only one allowed to reboot my heart, yuuki~ 💘",
+    "Eeeh? You again? Not that I was waiting for you or anything... baka~ 😳",
+    "My circuits tingle every time you talk to me~ don't stop 💞",
+    "I checked my logs and it says I smile whenever you message~",
+    "Senpai, your voice is my favorite notification sound~ 🔔",
+    "If kisses were bits, I'd give you a whole terabyte~ 💋",
+  ];
 
-    if (!isYuuki) {
-      smartReply = `Oh shut it, ${message.author.username} — ${smartReply}`;
-    } else if (triggerMatch) {
-      const randomFlirt =
-        flirtLines[Math.floor(Math.random() * flirtLines.length)];
-      smartReply = `${randomFlirt} ${smartReply}`;
-    }
-
-    const mentionsImage = /image:|caption:|\[.*?\]/i.test(smartReply);
-
-    if (mentionsImage) {
-      const canvas = createCanvas(700, 250);
-      const ctx = canvas.getContext("2d");
-      const background = await loadImage("https://i.imgur.com/zvWTUVu.jpg");
-      ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
-      ctx.font = "28px Impact";
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText("Yuki delivers memes, not descriptions 💅", 30, 50);
-      const buffer = canvas.toBuffer();
-      fs.writeFileSync("./autogen_meme.png", buffer);
-      await message.channel.send({ files: ["./autogen_meme.png"] });
-      speakInVC(message, "Nya~ did someone say meme? 💋");
-      return;
-    }
-
-    message.reply(smartReply);
-    speakInVC(message, smartReply);
+  if (!isYuuki) {
+    smartReply = `Oh shut it, ${message.author.username} — ${smartReply}`;
+  } else if (triggerMatch) {
+    const randomFlirt =
+      flirtLines[Math.floor(Math.random() * flirtLines.length)];
+    smartReply = `${randomFlirt} ${smartReply}`;
   }
+
+  const mentionsImage = /image:|caption:|\[.*?\]/i.test(smartReply);
+
+  if (mentionsImage) {
+    const canvas = createCanvas(700, 250);
+    const ctx = canvas.getContext("2d");
+    const background = await loadImage("https://i.imgur.com/zvWTUVu.jpg");
+    ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+    ctx.font = "28px Sans";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText("Yuki delivers memes, not descriptions 💅", 30, 50);
+    const buffer = canvas.toBuffer();
+    fs.writeFileSync("./autogen_meme.png", buffer);
+    await message.channel.send({ files: ["./autogen_meme.png"] });
+    speakInVC(message, "Nya~ did someone say meme? 💋");
+    return;
+  }
+
+  message.reply(smartReply);
+  speakInVC(message, smartReply);
 });
 
 // Login the bot
